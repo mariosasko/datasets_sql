@@ -6,6 +6,7 @@ DESCRIPTION = "datasets_sql is an extension package of 🤗 Datasets package tha
 
 TESTS_REQUIRE = [
     "pytest",
+    "numpy"
 ]
 
 QUALITY_REQUIRE = ["black~=22.0", "flake8>=3.8.3", "isort>=5.0.0"]
@@ -22,13 +23,13 @@ setup(
     description=DESCRIPTION,
     long_description=open("README.md", "r", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
-    keywords="deep learning",
+    keywords="datasets",
     license="Apache",
     author="Mario Šaško",
     author_email="mariosasko777@gmail.com",
     url="https://github.com/mariosasko/datasets_sql",
     packages=find_packages(),
     python_requires=">=3.7.0",
-    install_requires=["pyarrow>=7.0.0", "datasets", "duckdb", "sql-metadata"],
+    install_requires=["pyarrow>=5.0.0", "datasets", "duckdb>=0.3.2", "sql-metadata"],
     extras_require=EXTRAS_REQUIRE,
 )

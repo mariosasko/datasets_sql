@@ -2,9 +2,12 @@ import pyarrow
 from packaging import version
 
 
-if version.parse(pyarrow.__version__).major < 7:
+__version___ = "0.1.0"
+
+
+if version.parse(pyarrow.__version__).major < 5:
     raise ImportWarning(
-        "To use `datasets_sql`, the module `pyarrow>=7.0.0` is required, and the current version of `pyarrow` doesn't match this condition."
+        "To use `datasets_sql`, the module `pyarrow>=5.0.0` is required, and the current version of `pyarrow` doesn't match this condition."
     )
 
 del pyarrow

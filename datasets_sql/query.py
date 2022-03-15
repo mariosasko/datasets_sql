@@ -64,13 +64,14 @@ def query(
     if query_parser.query_type is not QueryType.SELECT:
         raise ValueError("The query must be a SELECT statement.")
 
+    # Traverse the frames in the reverse order and check their locals for the referenced datasets
     datasets = []
     frame_stack = inspect.stack()[1:]
     for table in query_parser.tables:
         for frame_info in frame_stack:
-            frame_globals = frame_info[0].f_globals
-            if table in frame_globals:
-                dataset = frame_globals[table]
+            frame_locals = frame_info.frame.f_locals
+            if table in frame_locals:
+                dataset = frame_locals[table]
                 break
         else:
             raise ValueError(f"The dataset `{table}` not found in the namespace.")
@@ -150,11 +151,18 @@ def query(
             return Dataset.from_file(cache_file_name, info=info, split=dataset.split)
 
     # Connect to the database and execute the query
-    db_file = str(PurePath(cache_file_name).with_suffix(".db"))
+    db_file = str(PurePath(cache_file_name).with_suffix(".db")) if cache_file_name is not None else ":memory:"
     conn = duckdb.connect(database=db_file)
     for table, dataset in zip(query_parser.tables, datasets):
         conn.register(table, dataset.data.table)
-    query_result = conn.execute(sql_query)
+    try:
+        query_result = conn.execute(sql_query)
+    except Exception:
+        if db_file is not None:
+            conn.close()
+            if os.path.exists(db_file):
+                os.remove(db_file)
+        raise
 
     buf_writer, writer, tmp_file = init_buffer_and_writer()
 
