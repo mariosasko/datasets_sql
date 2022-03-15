@@ -16,14 +16,17 @@ from datasets_sql import query
 
 imdb_dset = load_dataset("imdb", split="train")
 
-# Remove the rows where the `text` field has less than 100 characters
-imdb_query_dset1 = query("SELECT text FROM imdb_dset WHERE length(text) > 100")
+# Remove the rows where the `text` field has less than 1000 characters
+imdb_query_dset1 = query("SELECT text FROM imdb_dset WHERE length(text) > 1000")
 
 # Count the number of rows per label
 imdb_query_dset2 = query("SELECT label, COUNT(*) as num_rows FROM imdb_dset GROUP BY label")
 
 # Remove duplicated rows
 imdb_query_dset3 = query("SELECT DISTINCT text FROM imdb_dset")
+
+# Get the average length of the `text` field
+imdb_query_dset4 = query("SELECT AVG(length(text)) as avg_text_length FROM imdb_dset)
 
 order_customer_dset = Dataset.from_dict({
     "order_id": [10001, 10002, 10003],
