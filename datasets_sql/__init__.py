@@ -2,7 +2,7 @@ import pyarrow
 from packaging import version
 
 
-__version___ = "0.1.0"
+__version___ = "0.1.1"
 
 
 if version.parse(pyarrow.__version__).major < 5:
