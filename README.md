@@ -26,7 +26,7 @@ imdb_query_dset2 = query("SELECT label, COUNT(*) as num_rows FROM imdb_dset GROU
 imdb_query_dset3 = query("SELECT DISTINCT text FROM imdb_dset")
 
 # Get the average length of the `text` field
-imdb_query_dset4 = query("SELECT AVG(length(text)) as avg_text_length FROM imdb_dset)
+imdb_query_dset4 = query("SELECT AVG(length(text)) as avg_text_length FROM imdb_dset")
 
 order_customer_dset = Dataset.from_dict({
     "order_id": [10001, 10002, 10003],
