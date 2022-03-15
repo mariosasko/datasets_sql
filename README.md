@@ -1,6 +1,6 @@
 # datasets-sql
 
-A 🤗 Datasets extension package that provides support for executing arbitrary SQL queries on `Dataset` objects. It uses [DuckDB](https://duckdb.org/) as a SQL engine and follows its [query syntax](https://duckdb.org/docs/sql/introduction).
+A 🤗 Datasets extension package that provides support for executing arbitrary SQL queries on `Dataset` objects. It uses [DuckDB](https://duckdb.org/) as a SQL engine and follows its [query syntax](https://duckdb.org/docs/sql/introduction#querying-a-table).
 
 ## Installation
 
