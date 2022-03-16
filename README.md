@@ -5,7 +5,7 @@ A 🤗 Datasets extension package that provides support for executing arbitrary 
 ## Installation
 
 ```bash
-pip install datasets-sql
+pip install datasets_sql
 ```
 
 ## Quick Start
