@@ -30,6 +30,6 @@ setup(
     url="https://github.com/mariosasko/datasets_sql",
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     python_requires=">=3.7.0",
-    install_requires=["pyarrow>=5.0.0", "datasets", "duckdb>=0.3.2", "sql-metadata"],
+    install_requires=["pyarrow>=5.0.0", "datasets", "duckdb>=0.4.0"],
     extras_require=EXTRAS_REQUIRE,
 )

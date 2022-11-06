@@ -11,7 +11,7 @@ from datasets import Dataset, DatasetInfo, Features
 from datasets.arrow_writer import ArrowWriter
 from datasets.fingerprint import Hasher, is_caching_enabled
 from datasets.utils.logging import get_logger
-from sql_metadata import Parser, QueryType
+from datasets.utils.py_utils import temporary_assignment
 
 
 logger = get_logger(__name__)
@@ -22,6 +22,17 @@ QUERY_FUNC_VERSION = "1.0"
 
 def _query_func_identifier():
     return f"{query.__module__}.{query.__name__}@{QUERY_FUNC_VERSION}"
+
+
+def _table_names_from_query(sql_query):
+    # DuckDB's scan can get confused with Python objects from the namespace (a bug?), so we (temporarily) hide the frames needed for the scan
+    with temporary_assignment(inspect, "currentframe", lambda: None):
+        with duckdb.connect(":memory:") as conn:
+            return conn.get_table_names(sql_query)
+
+
+def _is_select_query(sql_query):
+    return sql_query.strip().lower().startswith("select")
 
 
 def query(
@@ -59,29 +70,33 @@ def query(
     if keep_in_memory and cache_file_name is not None:
         raise ValueError("Please use either `keep_in_memory` or `cache_file_name` but not both.")
 
-    query_parser = Parser(sql_query)
-
-    if query_parser.query_type is not QueryType.SELECT:
+    if not _is_select_query(sql_query):
         raise ValueError("The query must be a SELECT statement.")
 
     # Traverse the frames in the reverse order and check their locals for the referenced datasets
+    # DuckDB does a similar scan, but in C++: https://github.com/duckdb/duckdb/blob/cb8b64516ac888b628c4c3d845a7329c1e32bdf6/tools/pythonpkg/src/pyconnection.cpp#L601
     datasets = []
     frame_stack = inspect.stack()[1:]
-    for table in query_parser.tables:
+    table_names = _table_names_from_query(sql_query)
+    for table_name in table_names:
         for frame_info in frame_stack:
             frame_locals = frame_info.frame.f_locals
-            if table in frame_locals:
-                dataset = frame_locals[table]
+            if table_name in frame_locals:
+                dataset = frame_locals[table_name]
+                break
+            frame_globals = frame_info.frame.f_globals
+            if table_name in frame_globals:
+                dataset = frame_globals[table_name]
                 break
         else:
-            raise ValueError(f"The dataset `{table}` not found in the namespace.")
+            raise ValueError(f"The dataset `{table_name}` not found in the namespace.")
 
         if not isinstance(dataset, Dataset):
-            raise ValueError(f"The dataset `{table}` is not a Dataset object.")
+            raise ValueError(f"The dataset `{table_name}` is not a Dataset object.")
 
         if dataset._indices is not None:
             raise ValueError(
-                f"The dataset `{table}` has an indices mapping. Please flatten the indices with `.flatten_indices()`."
+                f"The dataset `{table_name}` has an indices mapping. Please flatten the indices with `.flatten_indices()`."
             )
 
         datasets.append(dataset)
@@ -90,12 +105,12 @@ def query(
 
     if new_fingerprint is None:
         hasher = Hasher()
-        sql_query_without_names = sql_query
-        for name, dataset in zip(query_parser.tables, datasets):
+        sql_query_without_table_names = sql_query
+        for table_name, dataset in zip(table_names, datasets):
             hasher.update(dataset._fingerprint)
             # Ignore the table names
-            sql_query_without_names = sql_query_without_names.replace(name, "")
-        hasher.update(sql_query_without_names)
+            sql_query_without_table_names = sql_query_without_table_names.replace(table_name, "")
+        hasher.update(sql_query_without_table_names)
         hasher.update(writer_batch_size)
         hasher.update(features)
         hasher.update(disable_nullable)
@@ -153,15 +168,14 @@ def query(
     # Connect to the database and execute the query
     db_file = str(PurePath(cache_file_name).with_suffix(".db")) if cache_file_name is not None else ":memory:"
     conn = duckdb.connect(database=db_file)
-    for table, dataset in zip(query_parser.tables, datasets):
+    for table, dataset in zip(table_names, datasets):
         conn.register(table, dataset.data.table)
     try:
         query_result = conn.execute(sql_query)
     except Exception:
-        if db_file is not None:
-            conn.close()
-            if os.path.exists(db_file):
-                os.remove(db_file)
+        conn.close()
+        if db_file != ":memory:" and os.path.exists(db_file):
+            os.remove(db_file)
         raise
 
     buf_writer, writer, tmp_file = init_buffer_and_writer()
@@ -169,13 +183,9 @@ def query(
     # Cache the result in an arrow file
     with writer:
         try:
-            chunk_idx = 0
-            while True:
-                table = query_result.fetch_arrow_chunk(chunk_idx + 1, True)
-                if not table:
-                    break
+            for record_batch in query_result.fetch_record_batch(chunk_size=writer_batch_size):
+                table = pa.Table.from_batches([record_batch])
                 writer.write_table(table)
-                chunk_idx += 1
         except (Exception, KeyboardInterrupt):
             if writer is not None:
                 writer.finalize()
@@ -196,10 +206,9 @@ def query(
         os.umask(umask)
         os.chmod(cache_file_name, 0o666 & ~umask)
 
-    if db_file is not None:
-        conn.close()
-        if os.path.exists(db_file):
-            os.remove(db_file)
+    conn.close()
+    if db_file != ":memory:" and os.path.exists(db_file):
+        os.remove(db_file)
 
     info = DatasetInfo(features=writer._features)
     if buf_writer is None:

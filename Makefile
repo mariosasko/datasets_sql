@@ -14,4 +14,4 @@ style:
 	isort datasets_sql tests
 
 test:
-	python -m pytest -n auto --dist=loadfile -s -v ./tests/
+	python -m pytest -sv ./tests/
