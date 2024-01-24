@@ -40,18 +40,6 @@ def test_join_query():
     assert len(d) == 10
 
 
-def test_obj_attr_replacement_scan():
-    class Data:
-        def __init__(self):
-            self.d = Dataset.from_dict({"a": list(range(10))})
-
-    d_obj = Data()
-    d = query("SELECT * FROM d_obj.d LIMIT 2")
-    assert isinstance(d, Dataset)
-    assert d.column_names == ["a"]
-    assert d.num_rows == 2
-
-
 def test_query_caching():
     with set_current_working_directory_to_temp_dir():
         d = Dataset.from_dict({"a": list(range(10))})

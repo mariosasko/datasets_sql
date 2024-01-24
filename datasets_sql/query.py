@@ -80,30 +80,23 @@ def query(
     table_names = _table_names_from_query(sql_query)
     for table_name in table_names:
         for frame_info in frame_stack:
-            main_part, *sub_parts = table_name.split(".")
             frame_locals = frame_info.frame.f_locals
-            if main_part in frame_locals:
-                obj = frame_locals[main_part]
-                for sub_part in sub_parts:
-                    obj = getattr(obj, sub_part)
-                dataset = obj
+            if table_name in frame_locals:
+                dataset = frame_locals[table_name]
                 break
             frame_globals = frame_info.frame.f_globals
-            if main_part in frame_globals:
-                obj = frame_globals[main_part]
-                for sub_part in sub_parts:
-                    obj = getattr(obj, sub_part)
-                dataset = obj
+            if table_name in frame_globals:
+                dataset = frame_globals[table_name]
                 break
         else:
-            raise ValueError(f"The dataset `{table_name}` not found in the namespace.")
+            raise ValueError(f"Dataset `{table_name}` not found in the namespace.")
 
         if not isinstance(dataset, Dataset):
-            raise ValueError(f"The dataset `{table_name}` is not a Dataset object.")
+            raise ValueError(f"Dataset `{table_name}` is not a HF Dataset object.")
 
         if dataset._indices is not None:
             raise ValueError(
-                f"The dataset `{table_name}` has an indices mapping. Please flatten the indices with `.flatten_indices()`."
+                f"Dataset `{table_name}` has an indices mapping. Please flatten the indices with `.flatten_indices()`."
             )
 
         datasets.append(dataset)
@@ -123,11 +116,6 @@ def query(
         hasher.update(disable_nullable)
         hasher.update(_query_func_identifier())
         new_fingerprint = hasher.hexdigest()
-
-    # DuckDB does not support "." in table names, so we replace "." with "_"
-    for table_name in table_names:
-        sql_query = sql_query.replace(table_name, table_name.replace(".", "_"))
-    table_names = [table_name.replace(".", "_") for table_name in table_names]
 
     def init_buffer_and_writer():
         # Prepare output buffer and batched writer in memory or on file if we update the table
@@ -195,7 +183,7 @@ def query(
     # Cache the result in an arrow file
     with writer:
         try:
-            for record_batch in query_result.fetch_record_batch(chunk_size=writer_batch_size):
+            for record_batch in query_result.fetch_record_batch(writer_batch_size):
                 table = pa.Table.from_batches([record_batch])
                 writer.write_table(table)
         except (Exception, KeyboardInterrupt):
