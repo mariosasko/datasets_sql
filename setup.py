@@ -19,7 +19,7 @@ EXTRAS_REQUIRE = {
 
 setup(
     name="datasets_sql",
-    version="0.3.0",
+    version="0.4.0",
     description=DESCRIPTION,
     long_description=open("README.md", "r", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
